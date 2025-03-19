@@ -81,10 +81,13 @@ export default function SignIn(props) {
   const [open, setOpen] = React.useState(false);
 
   const handleClickOpen = () => {
+    console.log('Opening forgot password dialog');
     setOpen(true);
+    document.activeElement.blur();
   };
 
   const handleClose = () => {
+    console.log('Closing forgot password dialog');
     setOpen(false);
   };
   
@@ -198,6 +201,8 @@ export default function SignIn(props) {
             </Alert>
           )}
           
+          <ForgotPassword open={open} handleClose={handleClose} />
+          
           <Box
             component="form"
             onSubmit={handleSubmit}
@@ -249,7 +254,6 @@ export default function SignIn(props) {
               control={<Checkbox value="remember" color="primary" />}
               label="Ghi nhớ đăng nhập"
             />
-            <ForgotPassword open={open} handleClose={handleClose} />
             <Button
               type="submit"
               fullWidth
@@ -258,15 +262,14 @@ export default function SignIn(props) {
             >
               {loading ? 'Đang xử lý...' : 'Đăng nhập'}
             </Button>
-            <Link
-              component="button"
-              type="button"
+            <Button
               onClick={handleClickOpen}
-              variant="body2"
+              variant="text"
+              color="primary"
               sx={{ alignSelf: 'center' }}
             >
               Quên mật khẩu?
-            </Link>
+            </Button>
           </Box>
           <Divider>hoặc</Divider>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
