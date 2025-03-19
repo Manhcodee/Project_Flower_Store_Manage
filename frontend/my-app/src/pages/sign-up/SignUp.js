@@ -73,6 +73,7 @@ export default function SignUp(props) {
     fullName: '',
     emailOrPhone: '', // Một trường duy nhất cho email/phone
     password: '',
+    confirmPassword: '', // Thêm trường xác nhận mật khẩu
   });
   
   // State quản lý lỗi
@@ -80,6 +81,7 @@ export default function SignUp(props) {
     fullName: '',
     emailOrPhone: '',
     password: '',
+    confirmPassword: '', // Thêm lỗi cho trường xác nhận mật khẩu
   });
   
   // State quản lý lỗi từ API
@@ -135,67 +137,110 @@ export default function SignUp(props) {
       isValid = false;
     }
     
+    // Validate confirmPassword
+    if (!formData.confirmPassword.trim()) {
+      newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu';
+      isValid = false;
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+      isValid = false;
+    }
+    
     setErrors(newErrors);
     return isValid;
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-  
+    
+    // Reset các thông báo
     setApiError('');
     setApiSuccess('');
-  
+    
     if (!validateForm()) {
       return;
     }
-  
+    
     setLoading(true);
-  
+    
+    // Xác định loại đầu vào là email hay phone
     const isEmailInput = isEmail(formData.emailOrPhone);
-  
+    
+    // Tạo request data tùy theo loại đầu vào
     const requestData = {
-      fullName: formData.fullName.trim(),
-      email: isEmailInput ? formData.emailOrPhone : `user_${Date.now()}@placeholder.com`,
-      phone: isEmailInput ? null : formData.emailOrPhone,
-      password: formData.password.trim(),
+      fullName: formData.fullName || 'Người dùng', // Giá trị mặc định nếu không nhập
+      email: isEmailInput ? formData.emailOrPhone : `user_${Date.now()}@placeholder.com`, // Email mặc định nếu nhập số điện thoại
+      phone: isEmailInput ? null : formData.emailOrPhone, // Nếu nhập email thì phone = null thay vì "0000000000"
+      password: formData.password
     };
-  
-    console.log("🚀 Sending Request:", requestData);
-  
+    
+    console.log('🚀 Sending Request: ', requestData);
+
     try {
+      // Biến để kiểm tra trạng thái server
+      let serverOffline = false;
+      
+      // Gửi request đăng ký trực tiếp mà không kiểm tra kết nối trước
       const response = await fetch('http://localhost:8080/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
         },
         body: JSON.stringify(requestData),
+        // Thêm timeout để không đợi quá lâu nếu server không phản hồi
+        signal: AbortSignal.timeout(5000) // Giảm timeout xuống 5 giây
+      }).catch(err => {
+        console.error('Network Error:', err);
+        // Đánh dấu server offline
+        serverOffline = true;
+        
+        // Xử lý lỗi kết nối
+        if (err.name === 'AbortError') {
+          throw new Error('Không nhận được phản hồi từ máy chủ, yêu cầu đã bị hủy sau thời gian chờ.');
+        } else if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+          throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra xem máy chủ đã khởi động chưa.');
+        } else {
+          throw new Error('Lỗi kết nối đến máy chủ. Vui lòng thử lại sau.');
+        }
       });
-  
-      let data;
-      const contentType = response.headers.get("content-type");
-  
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();  // ✅ Nếu JSON, parse bình thường
-      } else {
-        data = { message: await response.text() };  // ✅ Nếu text, bọc thành JSON object
+
+      // Nếu server offline, không cần xử lý phần còn lại
+      if (serverOffline) {
+        return;
       }
-  
-      console.log("🔄 Response:", data);
-  
+
+      console.log('Response Status:', response.status);
+      const data = await response.json().catch(err => {
+        console.error('JSON Parse Error:', err);
+        return { message: 'Không thể xử lý phản hồi từ máy chủ' };
+      });
+
       if (!response.ok) {
-        throw new Error(data.message || "Đăng ký thất bại");
+        const errorMessage = data.message || 'Đăng ký thất bại';
+        console.error('Error from server:', data);
+        throw new Error(errorMessage);
       }
-  
-      setApiSuccess("🎉 " + data.message);
-  
+
+      // Đăng ký thành công
+      setApiSuccess('Đăng ký thành công! Chuyển hướng đến trang đăng nhập...');
+      
+      // Chuyển hướng sau 2 giây
       setTimeout(() => {
-        setApiSuccess("");
         router.push('/sign-in');
       }, 2000);
-  
+      
     } catch (err) {
-      setApiError(err.message || "Đăng ký thất bại, vui lòng thử lại.");
+      console.error('Error:', err);
+      setApiError(err.message || 'Đăng ký thất bại, vui lòng thử lại');
+      
+      // Nếu lỗi liên quan đến kết nối, thêm nút để chuyển sang chế độ ngoại tuyến
+      if (err.message && (
+          err.message.includes('kết nối') || 
+          err.message.includes('không nhận được phản hồi') ||
+          err.message.includes('Failed to fetch')
+        )) {
+        setApiError(prev => prev + ' Bạn có thể dùng ứng dụng ở chế độ ngoại tuyến.');
+      }
     } finally {
       setLoading(false);
     }
@@ -218,7 +263,21 @@ export default function SignUp(props) {
           
           {/* Hiển thị lỗi từ API */}
           {apiError && (
-            <Alert severity="error" sx={{ width: '100%' }}>
+            <Alert 
+              severity="error" 
+              sx={{ width: '100%' }}
+              action={
+                apiError.includes('kết nối') || apiError.includes('không nhận được phản hồi') ? (
+                  <Button 
+                    color="inherit" 
+                    size="small"
+                    onClick={() => router.push('/offline-mode')}
+                  >
+                    DÙNG NGOẠI TUYẾN
+                  </Button>
+                ) : null
+              }
+            >
               {apiError}
             </Alert>
           )}
@@ -289,6 +348,24 @@ export default function SignUp(props) {
                     onChange={handleChange}
                     error={!!errors.password}
                     helperText={errors.password}
+                  />
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <FormLabel htmlFor="confirmPassword">Xác nhận mật khẩu</FormLabel>
+                  <TextField
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    fullWidth
+                    variant="outlined"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    error={!!errors.confirmPassword}
+                    helperText={errors.confirmPassword}
                   />
                 </FormControl>
               </Grid>
