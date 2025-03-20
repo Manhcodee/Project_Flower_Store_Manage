@@ -25,6 +25,7 @@ import Alert from '@mui/material/Alert';
 import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Stepper, Step, StepLabel, CircularProgress, Paper } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { LockReset as LockResetIcon } from '@mui/icons-material';
+import { useEffect } from 'react';
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: 'flex',
@@ -99,8 +100,123 @@ export default function SignIn(props) {
   const [activeStep, setActiveStep] = React.useState(0);
   const forgotPasswordFormRef = React.useRef(null);
   
+  // Thêm state cho Google OAuth
+  const [googleLoading, setGoogleLoading] = React.useState(false);
+  
   const steps = ['Nhập email', 'Nhập mã xác nhận', 'Đặt lại mật khẩu'];
   const API_URL = 'http://localhost:8080/api/auth';
+
+  // Thay đổi cách khởi tạo Google API client
+  useEffect(() => {
+    const loadGoogleScript = () => {
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api:client.js';
+      script.async = true;
+      script.defer = true;
+      script.onload = initGoogleAuth;
+      document.body.appendChild(script);
+    };
+
+    function initGoogleAuth() {
+      window.gapi.load('auth2', () => {
+        window.gapi.auth2.init({
+          client_id: '69558543242-3hmue8rdkl7ij5f26re6e73toojkgaa8.apps.googleusercontent.com',
+          scope: 'email profile',
+        }).then(() => {
+          console.log("Google Auth API đã được khởi tạo thành công");
+        }).catch(error => {
+          console.error("Lỗi khởi tạo Google Auth API:", error);
+        });
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      loadGoogleScript();
+    }
+
+    return () => {
+      const script = document.querySelector('script[src="https://apis.google.com/js/api:client.js"]');
+      if (script) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  const handleCredentialResponse = async (googleUser) => {
+    try {
+      setGoogleLoading(true);
+      
+      // Lấy token ID từ đối tượng googleUser
+      const idToken = googleUser.getAuthResponse().id_token;
+      console.log("Đã nhận được Google ID token");
+      
+      // Gửi ID token đến backend
+      const res = await fetch('http://localhost:8080/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          idToken: idToken
+        }),
+      });
+      
+      if (!res.ok) {
+        throw new Error('Lỗi kết nối đến server');
+      }
+      
+      const data = await res.json();
+      
+      localStorage.setItem('token', data.accessToken);
+      localStorage.setItem('user', JSON.stringify({
+        email: data.email,
+        fullName: data.fullName,
+        role: data.role,
+        profilePicture: data.profilePicture,
+      }));
+      
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Error:', error);
+      setApiError('Đăng nhập Google thất bại: ' + error.message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleLoginClick = () => {
+    if (typeof window === 'undefined' || !window.gapi || !window.gapi.auth2) {
+      setApiError('Google API chưa được tải. Vui lòng thử lại sau.');
+      return;
+    }
+
+    setGoogleLoading(true);
+
+    try {
+      const auth2 = window.gapi.auth2.getAuthInstance();
+      auth2.signIn({
+        prompt: 'select_account',
+        ux_mode: 'popup'
+      }).then(
+        googleUser => {
+          handleCredentialResponse(googleUser);
+        },
+        error => {
+          console.error('Google sign-in error:', error);
+          if (error.error === 'popup_closed_by_user') {
+            setApiError('Đăng nhập bị hủy. Vui lòng thử lại.');
+          } else {
+            setApiError('Lỗi đăng nhập Google: ' + (error.error || error.message || 'Không rõ lỗi'));
+          }
+          setGoogleLoading(false);
+        }
+      );
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      setApiError('Lỗi đăng nhập Google: ' + error.message);
+      setGoogleLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -505,13 +621,15 @@ export default function SignIn(props) {
           <Divider>hoặc</Divider>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, }}>
             <Button
+              id="google-login-button"
               fullWidth
               variant="outlined"
-              onClick={() => alert('Đăng nhập với Google')}
+              disabled={googleLoading}
               startIcon={<GoogleIcon />}
+              onClick={handleGoogleLoginClick}
             >
-              Đăng nhập với Google
-            </Button> 
+              {googleLoading ? 'Đang xử lý...' : 'Đăng nhập với Google'}
+            </Button>
             <Button
               fullWidth
               variant="outlined"

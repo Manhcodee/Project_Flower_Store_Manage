@@ -38,10 +38,19 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true, nullable = true)
     private String phone;
 
     private String address;
+
+    @Column(name = "google_id")
+    private String googleId;
+
+    @Column(name = "profile_picture")
+    private String profilePicture;
+
+    @Column(name = "is_enabled")
+    private boolean isEnabled = false;
 
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
