@@ -16,7 +16,8 @@ import { styled, useTheme } from '@mui/material/styles';
 import { useRouter } from 'next/router';
 import AppTheme from '../shared-theme/AppTheme';
 import ColorModeSelect from '../shared-theme/ColorModeSelect';
-import { GoogleIcon, FacebookIcon, SitemarkIcon } from '../sign-in/components/CustomIcons';
+import { GoogleIcon, FacebookIcon } from '../sign-in/components/CustomIcons';
+import FilterVintageIcon from '@mui/icons-material/FilterVintage';
 import '../../styles/fixSuccess.css';
 
 const Card = styled(MuiCard)(({ theme }) => ({
@@ -252,7 +253,17 @@ export default function SignUp(props) {
       <SignUpContainer direction="column" justifyContent="space-between">
         <ColorModeSelect sx={{ position: 'fixed', top: '1rem', right: '1rem' }} />
         <Card variant="outlined">
-          <SitemarkIcon />
+          <FilterVintageIcon 
+            sx={{ 
+              fontSize: 40,
+              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+              animation: 'spin 10s linear infinite',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
+              }
+            }}
+          />
           <Typography
             component="h1"
             variant="h4"

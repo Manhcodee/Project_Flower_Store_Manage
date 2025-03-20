@@ -65,47 +65,62 @@ function ForgotPassword({ open, handleClose }) {
   };
 
   const handleSendVerificationCode = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    console.log("🟢 handleSendVerificationCode is running...");
+
     if (!formData.emailInput) {
-      setError('Vui lòng nhập địa chỉ email');
-      return;
+        console.error("❌ Lỗi: Chưa nhập email");
+        setError("Vui lòng nhập địa chỉ email");
+        return;
     }
-    if (!emailRegex.test(formData.emailInput)) {
-      setError('Địa chỉ email không hợp lệ');
-      return;
-    }
+
+    console.log("🔹 Email đang gửi:", formData.emailInput);
+    console.log("🔹 Gửi request đến API:", `${API_URL}/forgot-password`);
+
+    // Log payload
+    const payload = { email: formData.emailInput };
+    console.log("🔹 Request payload:", JSON.stringify(payload));
 
     setLoading(true);
-    setError('');
-    setSuccess('');
-
     try {
-      console.log('Sending verification code to:', formData.emailInput);
-      
-      const response = await fetch(`${API_URL}/forgot-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: formData.emailInput }),
-      });
+        // Thử ping API trước
+        try {
+            console.log("🔍 Kiểm tra kết nối với API bằng ping...");
+            const pingResponse = await fetch(`${API_URL}/ping`);
+            console.log("🔍 Ping Response:", pingResponse.status, pingResponse.ok);
+            if (pingResponse.ok) {
+                console.log("✅ Kết nối API thành công!");
+            }
+        } catch (pingError) {
+            console.error("❌ Không thể kết nối đến API:", pingError);
+        }
 
-      const data = await response.json();
-      console.log('Response:', data);
+        const response = await fetch(`${API_URL}/forgot-password`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify(payload),
+        });
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Không thể gửi mã xác nhận');
-      }
+        console.log("📢 API Response Status:", response.status);
+        console.log("📢 API Response OK:", response.ok);
+        console.log("📢 API Response Headers:", [...response.headers.entries()]);
 
-      setSuccess('Mã xác nhận đã được gửi đến email của bạn');
-      setActiveStep(1);
+        const data = await response.json();
+        console.log("📢 API Response Data:", data);
+
+        if (!response.ok) throw new Error(data.message || "Lỗi gửi mã xác nhận");
+
+        setSuccess("Mã xác nhận đã được gửi đến email của bạn");
+        setActiveStep(1);
     } catch (err) {
-      console.error('Error sending verification code:', err);
-      setError(err.message || 'Đã xảy ra lỗi, vui lòng thử lại');
+        console.error("🚨 Lỗi gửi mã xác nhận:", err);
+        setError(err.message || "Có lỗi xảy ra, vui lòng thử lại");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const handleVerifyCode = async () => {
     if (!formData.verificationCode) {
@@ -215,16 +230,21 @@ function ForgotPassword({ open, handleClose }) {
     e.preventDefault();
     if (loading) return;
 
-    console.log('Form submitted at step:', activeStep);
+    console.log("✅ Form submitted at step:", activeStep);
+    console.log("✅ Form data at submit:", formData);
 
     if (activeStep === 0) {
-      handleSendVerificationCode();
+        console.log("🚀 Attempting to send verification code...");
+        handleSendVerificationCode(); // Gọi đúng hàm
     } else if (activeStep === 1) {
-      handleVerifyCode();
+        console.log("🚀 Attempting to verify code...");
+        handleVerifyCode();
     } else if (activeStep === 2) {
-      handleResetPassword();
+        console.log("🚀 Attempting to reset password...");
+        handleResetPassword();
     }
-  };
+};
+
 
   const handleBack = () => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
