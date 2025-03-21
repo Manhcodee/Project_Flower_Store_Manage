@@ -1,6 +1,6 @@
 package com.example.backend.Flower.service;
 
-import com.example.backend.Flower.dto.GoogleLoginRequest;
+import com.example.backend.Flower.dto.login.GoogleLoginRequest;
 import com.example.backend.Flower.entity.model.user.User;
 import com.example.backend.Flower.repository.user.UserRepository;
 import com.example.backend.Flower.security.JwtTokenProvider;
@@ -24,7 +24,7 @@ public class GoogleAuthService {
     public Map<String, Object> handleGoogleLogin(GoogleLoginRequest request) {
         // Kiểm tra xem user đã tồn tại chưa
         Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
-        
+
         User user;
         if (existingUser.isPresent()) {
             // Cập nhật thông tin user nếu cần
@@ -44,7 +44,7 @@ public class GoogleAuthService {
             user.setRole(Role.USER);
             user.setEnabled(true);
         }
-        
+
         user = userRepository.save(user);
 
         // Tạo JWT token

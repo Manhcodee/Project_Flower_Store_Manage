@@ -49,98 +49,85 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**", "/ws/**", "/topic/**", "/app/**").permitAll()
-                .requestMatchers("/api/test/**").permitAll()
-                .requestMatchers("/", "/login", "/sign-in").permitAll()
-                .anyRequest().authenticated()
-            )
-            .oauth2Login(oauth2 -> oauth2
-                .loginPage("http://localhost:3000/sign-in")
-                .defaultSuccessUrl("http://localhost:3000/dashboard", true)
-                .failureUrl("http://localhost:3000/sign-in?error=true")
-                .userInfoEndpoint(userInfo -> userInfo
-                    .userService(oAuth2UserService())
-                )
-                .successHandler((request, response, authentication) -> {
-                    OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-                    String email = oAuth2User.getAttribute("email");
-                    
-                    // Tạo JWT token
-                    String token = jwtTokenProvider.generateToken(email);
-                    
-                    // Chuyển hướng về frontend với token
-                    String redirectUrl = String.format(
-                        "http://localhost:3000/sign-in?token=%s",
-                        token
-                    );
-                    response.sendRedirect(redirectUrl);
-                })
-                .failureHandler((request, response, exception) -> {
-                    String redirectUrl = String.format(
-                        "http://localhost:3000/sign-in?error=%s",
-                        exception.getMessage()
-                    );
-                    response.sendRedirect(redirectUrl);
-                })
-            )
-            .logout(logout -> logout
-                .logoutSuccessUrl("http://localhost:3000/")
-                .permitAll()
-            )
-            .exceptionHandling(exception -> exception
-                .authenticationEntryPoint(authenticationEntryPoint)
-            )
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            );
-            
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**", "/ws/**", "/topic/**",
+                                "/app/**")
+                        .permitAll()
+                        .requestMatchers("/api/test/**").permitAll()
+                        .requestMatchers("/", "/login", "/sign-in").permitAll()
+                        .anyRequest().authenticated())
+                .oauth2Login(oauth2 -> oauth2
+                        .loginPage("http://localhost:3000/sign-in")
+                        .defaultSuccessUrl("http://localhost:3000/dashboard", true)
+                        .failureUrl("http://localhost:3000/sign-in?error=true")
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(oAuth2UserService()))
+                        .successHandler((request, response, authentication) -> {
+                            OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
+                            String email = oAuth2User.getAttribute("email");
+
+                            // Tạo JWT token
+                            String token = jwtTokenProvider.generateToken(email);
+
+                            // Chuyển hướng về frontend với token
+                            String redirectUrl = String.format(
+                                    "http://localhost:3000/sign-in?token=%s",
+                                    token);
+                            response.sendRedirect(redirectUrl);
+                        })
+                        .failureHandler((request, response, exception) -> {
+                            String redirectUrl = String.format(
+                                    "http://localhost:3000/sign-in?error=%s",
+                                    exception.getMessage());
+                            response.sendRedirect(redirectUrl);
+                        }))
+                .logout(logout -> logout
+                        .logoutSuccessUrl("http://localhost:3000/")
+                        .permitAll())
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint))
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
         http.addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);
-            
+
         return http.build();
     }
-    
+
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
     }
-    
+
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {  
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://127.0.0.1:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList(
-            "Authorization", 
-            "Content-Type", 
-            "Accept", 
-            "Origin", 
-            "X-Requested-With", 
-            "Access-Control-Allow-Origin",
-            "Access-Control-Allow-Headers",
-            "Access-Control-Allow-Methods",
-            "Access-Control-Allow-Credentials"
-        ));
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With",
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Headers",
+                "Access-Control-Allow-Methods",
+                "Access-Control-Allow-Credentials"));
         configuration.setExposedHeaders(Arrays.asList(
-            "Authorization",
-            "Access-Control-Allow-Origin",
-            "Access-Control-Allow-Credentials"
-        ));
+                "Authorization",
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-    
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        source.registerCorsConfiguration("/ws/**", configuration);
-        source.registerCorsConfiguration("/topic/**", configuration);
-        source.registerCorsConfiguration("/app/**", configuration);
-        source.registerCorsConfiguration("/oauth2/**", configuration);
         return source;
     }
 
-    
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -152,16 +139,16 @@ public class SecurityConfig {
         return (userRequest) -> {
             OAuth2User oAuth2User = delegate.loadUser(userRequest);
             String registrationId = userRequest.getClientRegistration().getRegistrationId();
-            
+
             // Xử lý thông tin user từ OAuth2
             Map<String, Object> attributes = oAuth2User.getAttributes();
             String email = (String) attributes.get("email");
             String name = (String) attributes.get("name");
-            
+
             // Tìm hoặc tạo user
             Optional<User> existingUser = userRepository.findByEmail(email);
             User user;
-            
+
             if (existingUser.isPresent()) {
                 user = existingUser.get();
             } else {
@@ -169,7 +156,7 @@ public class SecurityConfig {
                 user.setEmail(email);
                 user.setFullName(name);
                 user.setEnabled(true);
-                
+
                 if ("facebook".equals(registrationId)) {
                     user.setFacebookId((String) attributes.get("id"));
                     if (attributes.containsKey("picture")) {
@@ -180,11 +167,11 @@ public class SecurityConfig {
                         user.setProfilePicture((String) data.get("url"));
                     }
                 }
-                
+
                 userRepository.save(user);
             }
-            
+
             return oAuth2User;
         };
     }
-} 
+}
