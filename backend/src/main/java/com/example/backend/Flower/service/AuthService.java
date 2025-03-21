@@ -73,7 +73,8 @@ public class AuthService {
             user.setPhone(request.getPhone());
         } else {
             // Tạo số điện thoại tạm thời nếu không có
-            String temporaryPhone = "0000000000";
+            // Thêm tiền tố và timestamp để đảm bảo tính duy nhất
+            String temporaryPhone = "TEMP" + System.currentTimeMillis();
             user.setPhone(temporaryPhone);
         }
         

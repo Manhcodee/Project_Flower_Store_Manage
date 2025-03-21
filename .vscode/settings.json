@@ -14,5 +14,6 @@
             "username": "root",
             "database": "flower_shop"
         }
-    ]
+    ],
+    "java.configuration.updateBuildConfiguration": "interactive"
 }
