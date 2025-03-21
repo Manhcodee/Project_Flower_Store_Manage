@@ -16,6 +16,10 @@ import com.example.backend.Flower.service.AuthService;
 import com.example.backend.Flower.service.PasswordResetService;
 import com.example.backend.Flower.dto.login.JwtAuthResponse;
 import com.example.backend.Flower.dto.login.LoginDto;
+import com.example.backend.Flower.entity.model.user.User;
+import com.example.backend.Flower.entity.enums.Role;
+import com.example.backend.Flower.repository.user.UserRepository;
+import com.example.backend.Flower.security.JwtTokenProvider;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +36,12 @@ public class AuthController {
     
     @Autowired
     private PasswordResetService passwordResetService;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
@@ -72,6 +82,53 @@ public class AuthController {
             return ResponseEntity.ok().body(Map.of("message", "Mật khẩu đã được đặt lại thành công"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+    
+    @PostMapping("/google-login")
+    public ResponseEntity<?> handleGoogleLogin(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String name = request.get("name");
+            String picture = request.get("picture");
+            String googleId = request.get("sub");
+
+            // Tìm user theo email hoặc googleId
+            User user = userRepository.findByEmail(email)
+                    .orElseGet(() -> userRepository.findByGoogleId(googleId)
+                    .orElseGet(() -> {
+                        // Tạo user mới nếu chưa tồn tại
+                        User newUser = new User();
+                        newUser.setEmail(email);
+                        newUser.setFullName(name);
+                        newUser.setGoogleId(googleId);
+                        newUser.setProfilePicture(picture);
+                        newUser.setPassword("GOOGLE_" + System.currentTimeMillis()); // Mật khẩu ngẫu nhiên
+                        newUser.setRole(Role.USER);
+                        newUser.setEnabled(true);
+                        return userRepository.save(newUser);
+                    }));
+
+            // Cập nhật thông tin nếu cần
+            if (user.getGoogleId() == null) {
+                user.setGoogleId(googleId);
+                user.setProfilePicture(picture);
+                userRepository.save(user);
+            }
+
+            // Tạo JWT token
+            String token = jwtTokenProvider.generateToken(user.getEmail());
+
+            // Trả về response
+            return ResponseEntity.ok(Map.of(
+                "accessToken", token,
+                "email", user.getEmail(),
+                "fullName", user.getFullName(),
+                "role", user.getRole().toString()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("message", "Đăng nhập Google thất bại: " + e.getMessage()));
         }
     }
     

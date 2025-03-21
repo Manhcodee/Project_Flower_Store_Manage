@@ -26,6 +26,8 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Stepper,
 import CloseIcon from '@mui/icons-material/Close';
 import { LockReset as LockResetIcon } from '@mui/icons-material';
 import { useEffect } from 'react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: 'flex',
@@ -106,116 +108,60 @@ export default function SignIn(props) {
   const steps = ['Nhập email', 'Nhập mã xác nhận', 'Đặt lại mật khẩu'];
   const API_URL = 'http://localhost:8080/api/auth';
 
-  // Thay đổi cách khởi tạo Google API client
-  useEffect(() => {
-    const loadGoogleScript = () => {
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api:client.js';
-      script.async = true;
-      script.defer = true;
-      script.onload = initGoogleAuth;
-      document.body.appendChild(script);
-    };
-
-    function initGoogleAuth() {
-      window.gapi.load('auth2', () => {
-        window.gapi.auth2.init({
-          client_id: '69558543242-3hmue8rdkl7ij5f26re6e73toojkgaa8.apps.googleusercontent.com',
-          scope: 'email profile',
-        }).then(() => {
-          console.log("Google Auth API đã được khởi tạo thành công");
-        }).catch(error => {
-          console.error("Lỗi khởi tạo Google Auth API:", error);
-        });
-      });
-    }
-
-    if (typeof window !== 'undefined') {
-      loadGoogleScript();
-    }
-
-    return () => {
-      const script = document.querySelector('script[src="https://apis.google.com/js/api:client.js"]');
-      if (script) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
-
-  const handleCredentialResponse = async (googleUser) => {
+  const handleGoogleSuccess = async (credentialResponse) => {
     try {
       setGoogleLoading(true);
-      
-      // Lấy token ID từ đối tượng googleUser
-      const idToken = googleUser.getAuthResponse().id_token;
-      console.log("Đã nhận được Google ID token");
-      
-      // Gửi ID token đến backend
-      const res = await fetch('http://localhost:8080/api/auth/google', {
+      const decoded = jwtDecode(credentialResponse.credential);
+      console.log('Google User:', decoded);
+   
+      const response = await fetch(`${API_URL}/google-login`, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
-          idToken: idToken
-        }),
+          credential: credentialResponse.credential,
+          email: decoded.email,
+          name: decoded.name,
+          picture: decoded.picture,
+          sub: decoded.sub
+        })
       });
-      
-      if (!res.ok) {
-        throw new Error('Lỗi kết nối đến server');
+   
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Server response:', errorData);
+        throw new Error('Đăng nhập Google thất bại');
       }
-      
-      const data = await res.json();
-      
+
+      const data = await response.json();
+      console.log('Login success:', data);
+
+      if (!data.accessToken) {
+        throw new Error('Token không hợp lệ từ server');
+      }
+
       localStorage.setItem('token', data.accessToken);
       localStorage.setItem('user', JSON.stringify({
-        email: data.email,
-        fullName: data.fullName,
-        role: data.role,
-        profilePicture: data.profilePicture,
+        email: data.email || decoded.email,
+        fullName: data.fullName || decoded.name,
+        role: data.role || 'USER',
       }));
-      
+   
       router.push('/dashboard');
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Google Login Error:', error);
       setApiError('Đăng nhập Google thất bại: ' + error.message);
     } finally {
       setGoogleLoading(false);
     }
   };
-
-  const handleGoogleLoginClick = () => {
-    if (typeof window === 'undefined' || !window.gapi || !window.gapi.auth2) {
-      setApiError('Google API chưa được tải. Vui lòng thử lại sau.');
-      return;
-    }
-
-    setGoogleLoading(true);
-
-    try {
-      const auth2 = window.gapi.auth2.getAuthInstance();
-      auth2.signIn({
-        prompt: 'select_account',
-        ux_mode: 'popup'
-      }).then(
-        googleUser => {
-          handleCredentialResponse(googleUser);
-        },
-        error => {
-          console.error('Google sign-in error:', error);
-          if (error.error === 'popup_closed_by_user') {
-            setApiError('Đăng nhập bị hủy. Vui lòng thử lại.');
-          } else {
-            setApiError('Lỗi đăng nhập Google: ' + (error.error || error.message || 'Không rõ lỗi'));
-          }
-          setGoogleLoading(false);
-        }
-      );
-    } catch (error) {
-      console.error('Google sign-in error:', error);
-      setApiError('Lỗi đăng nhập Google: ' + error.message);
-      setGoogleLoading(false);
-    }
+  
+  const handleGoogleError = () => {
+    console.error('Google Login Failed');
+    setApiError('Đăng nhập Google thất bại, vui lòng thử lại');
+    setGoogleLoading(false);
   };
 
   const handleChange = (e) => {
@@ -518,478 +464,457 @@ export default function SignIn(props) {
   };
 
   return (
-    <AppTheme {...props}>
-      <Head>
-        <title>Đăng nhập</title>
-      </Head>
-      <CssBaseline enableColorScheme />
-      <SignInContainer direction="column" justifyContent="space-between">
-        <ColorModeSelect sx={{ position: 'fixed', top: '1rem', right: '1rem' }} />
-        <Card variant="outlined">
-          <FilterVintageIcon 
-            sx={{ 
-              fontSize: 40,
-              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
-              animation: 'spin 10s linear infinite',
-              '@keyframes spin': {
-                '0%': { transform: 'rotate(0deg)' },
-                '100%': { transform: 'rotate(360deg)' }
+    <GoogleOAuthProvider clientId="69558543242-3hmue8rdkl7ij5f26re6e73toojkgaa8.apps.googleusercontent.com">
+  <AppTheme {...props}>
+    <Head>
+      <title>Đăng nhập</title>
+    </Head>
+    <CssBaseline enableColorScheme />
+    <SignInContainer direction="column" justifyContent="space-between">
+      <ColorModeSelect sx={{ position: 'fixed', top: '1rem', right: '1rem' }} />
+      <Card variant="outlined">
+        <FilterVintageIcon 
+          sx={{ 
+            fontSize: 40,
+            color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+            animation: 'spin 10s linear infinite',
+            '@keyframes spin': {
+              '0%': { transform: 'rotate(0deg)' },
+              '100%': { transform: 'rotate(360deg)' }
+            }
+          }}
+        />
+        <Typography
+          component="h1"
+          variant="h4"
+          sx={{ width: '100%', fontSize: 'clamp(2rem, 10vw, 2.15rem)' }}
+        >
+          Đăng nhập
+        </Typography>
+        
+        {apiError && (
+          <Alert severity="error" sx={{ width: '100%' }}>
+            {apiError}
+          </Alert>
+        )}
+        
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          noValidate
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            gap: 2,
+          }}
+        >
+          <FormControl>
+            <FormLabel htmlFor="emailOrPhone">Email hoặc Số điện thoại</FormLabel>
+            <TextField
+              error={emailError}
+              helperText={emailErrorMessage}
+              id="emailOrPhone"
+              name="emailOrPhone"
+              placeholder="Email hoặc số điện thoại"
+              autoComplete="email"
+              autoFocus
+              required
+              fullWidth
+              variant="outlined"
+              color={emailError ? 'error' : 'primary'}
+              value={formData.emailOrPhone}
+              onChange={handleChange}
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel htmlFor="password">Mật khẩu</FormLabel>
+            <TextField
+              error={passwordError}
+              helperText={passwordErrorMessage}
+              name="password"
+              placeholder="••••••"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              required
+              fullWidth
+              variant="outlined"
+              color={passwordError ? 'error' : 'primary'}
+              value={formData.password}
+              onChange={handleChange}
+            />
+          </FormControl>
+          <FormControlLabel
+            control={<Checkbox value="remember" color="primary" />}
+            label="Ghi nhớ đăng nhập"
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={loading}
+          >
+            {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+          </Button>
+          <Button 
+            onClick={handleOpenForgotPassword} 
+            variant="text" 
+            color="primary"
+          >
+            Quên mật khẩu?
+          </Button>
+        </Box>
+        <Divider>hoặc</Divider>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Ẩn GoogleLogin */}
+          <div style={{ display: 'none' }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+            />
+          </div>
+          
+          {/* Nút hiển thị thay thế */}
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<GoogleIcon />}
+            onClick={() => {
+              const googleLoginButton = document.querySelector('[role="button"]');
+              if (googleLoginButton) {
+                googleLoginButton.click();
               }
             }}
-          />
-          <Typography
-            component="h1"
-            variant="h4"
-            sx={{ width: '100%', fontSize: 'clamp(2rem, 10vw, 2.15rem)' }}
+            disabled={googleLoading}
           >
-            Đăng nhập
+            {googleLoading ? 'Đang xử lý...' : 'Đăng nhập với Google'}
+          </Button>
+
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={() => alert('Đăng nhập với Facebook')}
+            startIcon={<FacebookIcon />}
+          >
+            Đăng nhập với Facebook
+          </Button>
+          <Typography component="p" variant="caption" sx={{ mt: 2, textAlign: 'center' }}>
+            Chưa có tài khoản? <Link href="/sign-up" color="primary">Đăng ký</Link>
           </Typography>
-          
-          {apiError && (
-            <Alert severity="error" sx={{ width: '100%' }}>
-              {apiError}
-            </Alert>
-          )}
-          
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            noValidate
+        </Box>
+      </Card>
+    </SignInContainer>
+
+    {/* Dialog Quên mật khẩu */}
+    <Dialog 
+      open={openForgotPassword} 
+      onClose={handleCloseForgotPassword}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{
+        sx: {
+          background: theme => theme.palette.mode === 'dark' 
+            ? 'linear-gradient(to bottom right, #1a237e, #121212)'
+            : 'linear-gradient(to bottom right, #e3f2fd, #ffffff)',
+          borderRadius: '16px',
+          boxShadow: theme => theme.palette.mode === 'dark'
+            ? '0 8px 32px rgba(0, 0, 0, 0.3)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1)',
+        }
+      }}
+    >
+      <DialogTitle
+        sx={{
+          background: 'transparent',
+          pb: 1
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <LockResetIcon 
+            sx={{ 
+              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+              fontSize: 28 
+            }} 
+          />
+          <Typography 
+            variant="h6"
             sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              width: '100%',
-              gap: 2,
+              color: theme => theme.palette.mode === 'dark' ? '#fff' : '#1976d2',
+              fontWeight: 600
             }}
           >
-            <FormControl>
-              <FormLabel htmlFor="emailOrPhone">Email hoặc Số điện thoại</FormLabel>
-              <TextField
-                error={emailError}
-                helperText={emailErrorMessage}
-                id="emailOrPhone"
-                name="emailOrPhone"
-                placeholder="Email hoặc số điện thoại"
-                autoComplete="email"
-                autoFocus
-                required
-                fullWidth
-                variant="outlined"
-                color={emailError ? 'error' : 'primary'}
-                value={formData.emailOrPhone}
-                onChange={handleChange}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel htmlFor="password">Mật khẩu</FormLabel>
-              <TextField
-                error={passwordError}
-                helperText={passwordErrorMessage}
-                name="password"
-                placeholder="••••••"
-                type="password"
-                id="password"
-                autoComplete="current-password"
-                required
-                fullWidth
-                variant="outlined"
-                color={passwordError ? 'error' : 'primary'}
-                value={formData.password}
-                onChange={handleChange}
-              />
-            </FormControl>
-            <FormControlLabel
-              control={<Checkbox value="remember" color="primary" />}
-              label="Ghi nhớ đăng nhập"
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={loading}
-            >
-              {loading ? 'Đang xử lý...' : 'Đăng nhập'}
-            </Button>
-            <Button 
-              onClick={handleOpenForgotPassword} 
-              variant="text" 
-              color="primary"
-            >
-              Quên mật khẩu?
-            </Button>
-          </Box>
-          <Divider>hoặc</Divider>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, }}>
-            <Button
-              id="google-login-button"
-              fullWidth
-              variant="outlined"
-              disabled={googleLoading}
-              startIcon={<GoogleIcon />}
-              onClick={handleGoogleLoginClick}
-            >
-              {googleLoading ? 'Đang xử lý...' : 'Đăng nhập với Google'}
-            </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => alert('Đăng nhập với Facebook')}
-              startIcon={<FacebookIcon />}
-            >
-              Đăng nhập với Facebook
-            </Button>
-            <Typography component="p" variant="caption" sx={{ mt: 2, textAlign: 'center' }}>
-              Chưa có tài khoản? <Link href="/sign-up" color="primary">Đăng ký</Link>
-            </Typography>
-          </Box>
-        </Card>
-      </SignInContainer>
+            Đặt lại mật khẩu
+          </Typography>
+          <IconButton
+            aria-label="close"
+            onClick={handleCloseForgotPassword}
+            sx={{ 
+              marginLeft: 'auto',
+              color: theme => theme.palette.mode === 'dark' ? '#fff' : '#666',
+              '&:hover': {
+                backgroundColor: theme => theme.palette.mode === 'dark' 
+                  ? 'rgba(255, 255, 255, 0.1)' 
+                  : 'rgba(0, 0, 0, 0.04)'
+              }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
 
-      {/* Dialog Quên mật khẩu */}
-      <Dialog
-        open={openForgotPassword}
-        onClose={handleCloseForgotPassword}
-        maxWidth="sm"
-        fullWidth
-        aria-labelledby="forgot-password-dialog-title"
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            background: theme => theme.palette.mode === 'dark'
-              ? 'linear-gradient(to bottom, rgba(17, 24, 39, 0.95), rgba(17, 24, 39, 0.9))'
-              : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.9))',
-            backdropFilter: 'blur(10px)',
-            border: theme => `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
-            boxShadow: theme => theme.palette.mode === 'dark'
-              ? '0 8px 32px rgba(0, 0, 0, 0.4)'
-              : '0 8px 32px rgba(0, 0, 0, 0.1)',
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '4px',
-              background: theme => theme.palette.mode === 'dark'
-                ? 'linear-gradient(90deg, #3f51b5, #2196f3)'
-                : 'linear-gradient(90deg, #1976d2, #42a5f5)',
-            }
+      <DialogContent
+        sx={{
+          background: 'transparent',
+          pt: 2,
+          '& .MuiTextField-root': {
+            '& .MuiInputLabel-root': {
+              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+              transform: 'translate(14px, 10px)',
+            },
+            '& .MuiInputLabel-shrink': {
+              transform: 'translate(14px, -15px) scale(0.75)',
+            },
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: theme => theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.5)' : 'rgba(25, 118, 210, 0.5)',
+              },
+              '&:hover fieldset': {
+                borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: theme => theme.palette.mode === 'dark' ? '#fff' : 'inherit',
+            },
           }
         }}
       >
-        <form ref={forgotPasswordFormRef} onSubmit={handleForgotPasswordSubmit} noValidate>
-          <DialogTitle
-            sx={{
-              p: 3,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 2,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <LockResetIcon
-                sx={{
-                  fontSize: 28,
-                  color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
-                }}
-              />
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: theme => theme.palette.mode === 'dark' ? '#fff' : '#1976d2',
-                }}
-              >
-                Khôi phục mật khẩu
-              </Typography>
-            </Box>
-            <IconButton
-              onClick={handleCloseForgotPassword}
-              sx={{
-                color: 'text.secondary',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  transform: 'rotate(90deg)',
-                }
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
+        <Stepper 
+          activeStep={activeStep} 
+          sx={{ 
+            py: 3,
+            '& .MuiStepLabel-label': {
+              color: theme => theme.palette.mode === 'dark' ? '#fff' : 'inherit'
+            },
+            '& .MuiStepIcon-root': {
+              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2'
+            }
+          }}
+        >
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
 
-          <DialogContent sx={{ p: 3 }}>
-            <Stepper
-              activeStep={activeStep}
-              alternativeLabel
-              sx={{
-                mb: 4,
-                '& .MuiStepIcon-root': {
-                  color: theme => theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.2)' : 'rgba(25, 118, 210, 0.2)',
-                  '&.Mui-active': {
+        {forgotPasswordError && (
+          <Alert severity="error" sx={{ mb: 2 }}>{forgotPasswordError}</Alert>
+        )}
+        {forgotPasswordSuccess && (
+          <Alert severity="success" sx={{ mb: 2 }}>{forgotPasswordSuccess}</Alert>
+        )}
+
+        <form ref={forgotPasswordFormRef} onSubmit={handleForgotPasswordSubmit}>
+          {activeStep === 0 && (
+            <TextField
+              fullWidth
+              label="Email"
+              name="emailInput"
+              type="email"
+              value={forgotPasswordData.emailInput}
+              onChange={handleForgotPasswordChange}
+              required
+              sx={{ 
+                mt: 2,
+                '& .MuiInputLabel-root': {
+                  color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                },
+                '& .MuiInputLabel-shrink': {
+                  transform: 'translate(14px, -10px)',
+                },
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: theme => theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.5)' : 'rgba(25, 118, 210, 0.5)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                  },
+                },
+                '& .MuiInputBase-input': {
+                  color: theme => theme.palette.mode === 'dark' ? '#fff' : 'inherit',
+                },
+              }}
+              variant="outlined"
+            />
+          )}
+
+          {activeStep === 1 && (
+            <TextField
+              fullWidth
+              label="Mã xác nhận"
+              name="verificationCode"
+              value={forgotPasswordData.verificationCode}
+              onChange={handleForgotPasswordChange}
+              required
+              sx={{ 
+                mt: 2,
+                '& .MuiInputLabel-root': {
+                  color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                },
+                '& .MuiInputLabel-shrink': {
+                  transform: 'translate(14px, -10px)',
+                },
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: theme => theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.5)' : 'rgba(25, 118, 210, 0.5)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                  },
+                },
+                '& .MuiInputBase-input': {
+                  color: theme => theme.palette.mode === 'dark' ? '#fff' : 'inherit',
+                },
+              }}
+              variant="outlined"
+            />
+          )}
+
+          {activeStep === 2 && (
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                label="Mật khẩu mới"
+                name="newPassword"
+                type="password"
+                value={forgotPasswordData.newPassword}
+                onChange={handleForgotPasswordChange}
+                required
+                sx={{ 
+                  mt: 2,
+                  '& .MuiInputLabel-root': {
                     color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
                   },
-                  '&.Mui-completed': {
-                    color: '#4caf50',
-                  }
-                }
-              }}
-            >
-              {steps.map((label) => (
-                <Step key={label}>
-                  <StepLabel>{label}</StepLabel>
-                </Step>
-              ))}
-            </Stepper>
-
-            {forgotPasswordError && (
-              <Alert
-                severity="error"
-                sx={{
-                  mb: 3,
-                  borderRadius: 1,
-                  animation: 'slideDown 0.2s ease-out',
-                  '@keyframes slideDown': {
-                    from: { opacity: 0, transform: 'translateY(-10px)' },
-                    to: { opacity: 1, transform: 'translateY(0)' }
-                  }
+                  '& .MuiInputLabel-shrink': {
+                    transform: 'translate(14px, -10px)',
+                  },
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: theme => theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.5)' : 'rgba(25, 118, 210, 0.5)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                    },
+                  },
+                  '& .MuiInputBase-input': {
+                    color: theme => theme.palette.mode === 'dark' ? '#fff' : 'inherit',
+                  },
                 }}
-              >
-                {forgotPasswordError}
-              </Alert>
-            )}
-
-            {forgotPasswordSuccess && (
-              <Alert
-                severity="success"
-                sx={{
-                  mb: 3,
-                  borderRadius: 1,
-                  animation: 'slideDown 0.2s ease-out'
+                variant="outlined"
+              />
+              <TextField
+                fullWidth
+                label="Xác nhận mật khẩu"
+                name="confirmPassword"
+                type="password"
+                value={forgotPasswordData.confirmPassword}
+                onChange={handleForgotPasswordChange}
+                required
+                sx={{ 
+                  transform: 'translate(0px, 10px)',
+                  mt: 2,
+                  '& .MuiInputLabel-root': {
+                    color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                  },
+                  '& .MuiInputLabel-shrink': {
+                    transform: 'translate(14px, -10px)',
+                  },
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: theme => theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.5)' : 'rgba(25, 118, 210, 0.5)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+                    },
+                  },
+                  '& .MuiInputBase-input': {
+                    color: theme => theme.palette.mode === 'dark' ? '#fff' : 'inherit',
+                  },
                 }}
-              >
-                {forgotPasswordSuccess}
-              </Alert>
-            )}
+                variant="outlined"
+              />
+            </Stack>
+          )}
+        </form>
+      </DialogContent>
 
-            <Box sx={{ position: 'relative' }}>
-              <Box
-                sx={{
-                  opacity: forgotPasswordLoading ? 0.7 : 1,
-                  filter: forgotPasswordLoading ? 'blur(1px)' : 'none',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {activeStep === 0 && (
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography
-                      variant="body1"
-                      color="text.secondary"
-                      sx={{ mb: 3 }}
-                    >
-                      Nhập địa chỉ email của tài khoản và chúng tôi sẽ gửi mã xác nhận để đặt lại mật khẩu.
-                    </Typography>
-                    <TextField
-                      autoFocus
-                      required
-                      fullWidth
-                      name="emailInput"
-                      label="Địa chỉ email"
-                      type="email"
-                      value={forgotPasswordData.emailInput}
-                      onChange={handleForgotPasswordChange}
-                      disabled={forgotPasswordLoading}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 1,
-                          backgroundColor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                          transform: 'translateY(5px)'
-                        }
-                      }}
-                    />
-                  </Box>
-                )}
-
-                {activeStep === 1 && (
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography
-                      variant="body1"
-                      color="text.secondary"
-                      sx={{ mb: 3 }}
-                    >
-                      Chúng tôi đã gửi mã xác nhận đến email của bạn. Vui lòng kiểm tra và nhập mã.
-                    </Typography>
-                    <TextField
-                      autoFocus
-                      required
-                      fullWidth
-                      name="verificationCode"
-                      label="Mã xác nhận"
-                      value={forgotPasswordData.verificationCode}
-                      onChange={handleForgotPasswordChange}
-                      disabled={forgotPasswordLoading}
-                      inputProps={{
-                        maxLength: 6,
-                        style: {
-                          fontSize: '24px',
-                          letterSpacing: '0.5em',
-                          textAlign: 'center',
-                          padding: '12px',
-                          
-                        }
-                      }}
-                      sx={{
-                        maxWidth: 250,
-                        mx: 'auto',
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 1,
-                          backgroundColor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                          transform: 'translateY(5px)'
-                        }
-                      }}
-                    />
-                    <Button
-                      size="small"
-                      onClick={handleSendVerificationCode}
-                      disabled={forgotPasswordLoading}
-                      sx={{
-                        mt: 2,
-                        color: 'primary.main',
-                        '&:hover': {
-                          backgroundColor: 'transparent',
-                          textDecoration: 'underline',
-                        }
-                      }}
-                    >
-                      Gửi lại mã
-                    </Button>
-                  </Box>
-                )}
-
-                {activeStep === 2 && (
-                  <Box>
-                    <Typography
-                      variant="body1"
-                      color="text.secondary"
-                      sx={{ mb: 3, textAlign: 'center' }}
-                    >
-                      Tạo mật khẩu mới cho tài khoản của bạn.
-                    </Typography>
-                    <Stack spacing={2}>
-                      <TextField
-                        required
-                        fullWidth
-                        name="newPassword"
-                        label="Mật khẩu mới"
-                        type="password"
-                        value={forgotPasswordData.newPassword}
-                        onChange={handleForgotPasswordChange}
-                        disabled={forgotPasswordLoading}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 1,
-                            backgroundColor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                            transform: 'translateY(5px)'
-                          }
-                        }}
-                      />
-                      <TextField
-                        required
-                        fullWidth
-                        name="confirmPassword"
-                        label="Xác nhận mật khẩu"
-                        type="password"
-                        value={forgotPasswordData.confirmPassword}
-                        onChange={handleForgotPasswordChange}
-                        disabled={forgotPasswordLoading}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 1,
-                            backgroundColor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                            transform: 'translateY(5px)'
-                          }
-                        }}
-                      />
-                    </Stack>
-                  </Box>
-                )}
-              </Box>
-
-              {forgotPasswordLoading && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 2
-                  }}
-                >
-                  <CircularProgress size={32} />
-                  <Typography variant="body2" color="text.secondary">
-                    Đang xử lý...
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </DialogContent>
-
-          <DialogActions
+      <DialogActions 
+        sx={{ 
+          px: 3, 
+          pb: 3,
+          background: 'transparent',
+          '& .MuiButton-root': {
+            borderRadius: '8px',
+            textTransform: 'none',
+            px: 3
+          }
+        }}
+      >
+        {activeStep > 0 && (
+          <Button 
+            onClick={handleBack}
             sx={{
-              p: 2,
-              px: 3,
-              gap: 1,
-              bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
-              borderTop: 1,
-              borderColor: 'divider'
+              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2'
             }}
           >
-            <Button
-              onClick={handleCloseForgotPassword}
-              disabled={forgotPasswordLoading}
-              color="inherit"
-              sx={{ minWidth: 100 }}
-            >
-              Hủy
-            </Button>
-            <Box sx={{ flex: 1 }} />
-            {activeStep > 0 && (
-              <Button
-                onClick={handleBack}
-                disabled={forgotPasswordLoading}
-                sx={{ minWidth: 100 }}
-              >
-                Quay lại
-              </Button>
-            )}
-            <Button
-              variant="contained"
-              type="submit"
-              disabled={forgotPasswordLoading}
-              sx={{
-                minWidth: 100,
-                bgcolor: theme => theme.palette.mode === 'dark' ? '#2196f3' : '#1976d2',
-                '&:hover': {
-                  bgcolor: theme => theme.palette.mode === 'dark' ? '#1976d2' : '#1565c0',
-                }
-              }}
-            >
-              {forgotPasswordLoading ? (
-                <CircularProgress size={24} sx={{ color: 'inherit' }} />
-              ) : activeStep === steps.length - 1 ? (
-                'Hoàn thành'
-              ) : (
-                'Tiếp tục'
-              )}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </AppTheme>
+            Quay lại
+          </Button>
+        )}
+        <Button
+          variant="contained"
+          onClick={handleForgotPasswordSubmit}
+          disabled={forgotPasswordLoading}
+          sx={{
+            background: theme => theme.palette.mode === 'dark' 
+              ? 'linear-gradient(45deg, #1976d2, #90caf9)'
+              : 'linear-gradient(45deg, #1976d2, #42a5f5)',
+            '&:hover': {
+              background: theme => theme.palette.mode === 'dark'
+                ? 'linear-gradient(45deg, #1565c0, #64b5f6)'
+                : 'linear-gradient(45deg, #1565c0, #1976d2)'
+            }
+          }}
+        >
+          {forgotPasswordLoading ? (
+            <CircularProgress size={24} color="inherit" />
+          ) : activeStep === steps.length - 1 ? (
+            'Đặt lại mật khẩu'
+          ) : (
+            'Tiếp tục'
+          )}
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+  </AppTheme>
+</GoogleOAuthProvider>
+
   );
 }

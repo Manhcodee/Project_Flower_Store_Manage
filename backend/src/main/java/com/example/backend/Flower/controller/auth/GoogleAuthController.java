@@ -1,6 +1,6 @@
 package com.example.backend.Flower.controller.auth;
 
-import com.example.backend.Flower.dto.login.GoogleLoginRequest;
+import com.example.backend.Flower.dto.GoogleLoginRequest;
 import com.example.backend.Flower.service.GoogleAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,36 +25,37 @@ public class GoogleAuthController {
     private final GoogleAuthService googleAuthService;
 
     @PostMapping("/google")
-    public ResponseEntity<Map<String, Object>> googleLogin(@RequestBody GoogleLoginRequest request) throws Exception {
-        // Lấy idToken từ request
+public ResponseEntity<Map<String, Object>> googleLogin(@RequestBody GoogleLoginRequest request) {
+    try {
         String idToken = request.getIdToken();
-
-        // Tạo verifier
-        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-                new NetHttpTransport(),
-                new GsonFactory())
-                .setAudience(Collections
-                        .singletonList("69558543242-3hmue8rdkl7ij5f26re6e73toojkgaa8.apps.googleusercontent.com"))
-                .build();
-
-        // Verify token
-        GoogleIdToken googleIdToken = verifier.verify(idToken);
-        if (googleIdToken == null) {
-            throw new RuntimeException("Invalid ID token");
+        if (idToken == null || idToken.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "ID Token is missing"));
         }
 
-        GoogleIdToken.Payload payload = googleIdToken.getPayload();
+        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                new NetHttpTransport(), new GsonFactory())
+                .setAudience(Collections.singletonList("69558543242-3hmue8rdkl7ij5f26re6e73toojkgaa8.apps.googleusercontent.com"))
+                .build();
 
-        // Lấy thông tin người dùng
+        GoogleIdToken googleIdToken = verifier.verify(idToken);
+        if (googleIdToken == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid ID token"));
+        }
+
+        Payload payload = googleIdToken.getPayload();
         String email = payload.getEmail();
         String name = (String) payload.get("name");
         String pictureUrl = (String) payload.get("picture");
         String googleId = payload.getSubject();
 
-        // Gọi service
         Map<String, Object> response = googleAuthService.handleGoogleLogin(
-                new GoogleLoginRequest(email, name, pictureUrl, googleId));
+                new GoogleLoginRequest(idToken, email, name, pictureUrl, googleId));
 
         return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+        return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
     }
+}
+
 }

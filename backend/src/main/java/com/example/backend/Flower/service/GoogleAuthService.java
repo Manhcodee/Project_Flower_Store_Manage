@@ -1,16 +1,17 @@
 package com.example.backend.Flower.service;
 
-import com.example.backend.Flower.dto.login.GoogleLoginRequest;
+import com.example.backend.Flower.dto.GoogleLoginRequest;
 import com.example.backend.Flower.entity.model.user.User;
-import com.example.backend.Flower.entity.enums.Role;
 import com.example.backend.Flower.repository.user.UserRepository;
 import com.example.backend.Flower.security.JwtTokenProvider;
+import com.example.backend.Flower.entity.enums.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -22,29 +23,29 @@ public class GoogleAuthService {
 
     public Map<String, Object> handleGoogleLogin(GoogleLoginRequest request) {
         // Kiểm tra xem user đã tồn tại chưa
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseGet(() -> {
-                    // Tạo user mới nếu chưa tồn tại
-                    User newUser = new User();
-                    newUser.setEmail(request.getEmail());
-                    newUser.setFullName(request.getFullName());
-                    newUser.setGoogleId(request.getGoogleId());
-                    newUser.setProfilePicture(request.getPicture());
-                    // Tạo mật khẩu ngẫu nhiên cho user Google
-                    newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-                    newUser.setRole(Role.USER);
-                    newUser.setEnabled(true);
-                    // Số điện thoại tạm thời để null vì đăng nhập Google không yêu cầu
-                    return userRepository.save(newUser);
-                });
-
-        // Cập nhật thông tin Google nếu user đã tồn tại nhưng chưa liên kết với Google
-        if (user.getGoogleId() == null) {
-            user.setGoogleId(request.getGoogleId());
+        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
+        
+        User user;
+        if (existingUser.isPresent()) {
+            // Cập nhật thông tin user nếu cần
+            user = existingUser.get();
+            user.setFullName(request.getName());
             user.setProfilePicture(request.getPicture());
+            user.setGoogleId(request.getSub());
+        } else {
+            // Tạo user mới
+            user = new User();
+            user.setEmail(request.getEmail());
+            user.setFullName(request.getName());
+            user.setProfilePicture(request.getPicture());
+            user.setGoogleId(request.getSub());
+            // Tạo mật khẩu ngẫu nhiên
+            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+            user.setRole(Role.USER);
             user.setEnabled(true);
-            userRepository.save(user);
         }
+        
+        user = userRepository.save(user);
 
         // Tạo JWT token
         String token = jwtTokenProvider.generateToken(user.getEmail());
@@ -54,8 +55,7 @@ public class GoogleAuthService {
         response.put("accessToken", token);
         response.put("email", user.getEmail());
         response.put("fullName", user.getFullName());
-        response.put("role", user.getRole().toString());
-        response.put("profilePicture", user.getProfilePicture());
+        response.put("role", user.getRole());
 
         return response;
     }
