@@ -104,6 +104,7 @@ export default function SignIn(props) {
   
   // Thêm state cho Google OAuth
   const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [facebookLoading, setFacebookLoading] = React.useState(false);
   
   const steps = ['Nhập email', 'Nhập mã xác nhận', 'Đặt lại mật khẩu'];
   const API_URL = 'http://localhost:8080/api/auth';
@@ -463,6 +464,94 @@ export default function SignIn(props) {
     }
   };
 
+  useEffect(() => {
+    // Load Facebook SDK
+    window.fbAsyncInit = function() {
+      FB.init({
+        appId: '1065639608666326',
+        cookie: true,
+        xfbml: true,
+        version: 'v18.0'
+      });
+    };
+
+    (function(d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) return;
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/vi_VN/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  }, []);
+
+  const handleFacebookLogin = async (response) => {
+    try {
+      setFacebookLoading(true);
+      console.log('Facebook Response:', response);
+
+      const result = await fetch(`https://localhost:8443/api/auth/facebook-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accessToken: response.authResponse.accessToken,
+          userID: response.authResponse.userID
+        }),
+        credentials: 'include'
+      });
+
+      if (!result.ok) {
+        const errorData = await result.text();
+        throw new Error(errorData || 'Đăng nhập Facebook thất bại');
+      }
+
+      const data = await result.json();
+      console.log('Login success:', data);
+
+      localStorage.setItem('token', data.accessToken);
+      localStorage.setItem('user', JSON.stringify({
+        email: data.email,
+        fullName: data.fullName,
+        role: data.role,
+      }));
+
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Facebook Login Error:', error);
+      setApiError('Đăng nhập Facebook thất bại: ' + error.message);
+    } finally {
+      setFacebookLoading(false);
+    }
+  };
+
+  const initiateFacebookLogin = () => {
+    if (facebookLoading) return;
+
+    window.FB.login(function(response) {
+      console.log('Facebook Login Response:', response);
+      
+      if (response.status === 'connected') {
+        // Lấy thông tin người dùng
+        window.FB.api('/me', { fields: 'id,name,email,picture' }, function(userData) {
+          console.log('Facebook User Data:', userData);
+          handleFacebookLogin({
+            authResponse: response.authResponse,
+            userData: userData
+          });
+        });
+      } else {
+        console.log('Facebook login failed:', response);
+        setApiError('Đăng nhập Facebook thất bại');
+      }
+    }, {
+      scope: 'email,public_profile',
+      return_scopes: true,
+      enable_profile_selector: true,
+      auth_type: 'rerequest'
+    });
+  };
+
   return (
     <GoogleOAuthProvider clientId="69558543242-3hmue8rdkl7ij5f26re6e73toojkgaa8.apps.googleusercontent.com">
   <AppTheme {...props}>
@@ -594,10 +683,19 @@ export default function SignIn(props) {
           <Button
             fullWidth
             variant="outlined"
-            onClick={() => alert('Đăng nhập với Facebook')}
+            onClick={initiateFacebookLogin}
             startIcon={<FacebookIcon />}
+            disabled={facebookLoading}
+            sx={{
+              borderColor: '#1877f2',
+              color: '#1877f2',
+              '&:hover': {
+                borderColor: '#0d5aa7',
+                backgroundColor: 'rgba(24, 119, 242, 0.04)'
+              }
+            }}
           >
-            Đăng nhập với Facebook
+            {facebookLoading ? 'Đang xử lý...' : 'Đăng nhập với Facebook'}
           </Button>
           <Typography component="p" variant="caption" sx={{ mt: 2, textAlign: 'center' }}>
             Chưa có tài khoản? <Link href="/sign-up" color="primary">Đăng ký</Link>
