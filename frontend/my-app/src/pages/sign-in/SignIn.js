@@ -131,11 +131,11 @@ export default function SignIn(props) {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          credential: credentialResponse.credential,
+          idToken: credentialResponse.credential,
           email: decoded.email,
-          name: decoded.name,
+          fullName: decoded.name,
           picture: decoded.picture,
-          sub: decoded.sub
+          googleId: decoded.sub
         })
       });
    
