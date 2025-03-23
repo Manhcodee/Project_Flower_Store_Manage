@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xem trước ảnh hoa - Flower Shop</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        h1, h2 {
+            color: #6a1b9a;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .category {
+            margin-bottom: 30px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .category-title {
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .image-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .image-item:hover {
+            transform: translateY(-5px);
+        }
+        .image-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+        .image-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .image-item:hover .image-info {
+            opacity: 1;
+        }
+        .status {
+            color: #666;
+            font-size: 14px;
+        }
+        .btn {
+            background-color: #6a1b9a;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #8e24aa;
+        }
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Xem trước ảnh hoa - Flower Shop</h1>
+        <p>Dưới đây là danh sách các ảnh hoa đã được tải lên. Nhấp vào ảnh để xem chi tiết.</p>
+        
+        <div id="flowers-container">
+            <h2>Đang tải danh sách ảnh...</h2>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const flowerTypes = [
+                { id: 'rose', name: 'Hoa Hồng (Rose)' },
+                { id: 'lily', name: 'Hoa Ly (Lily)' },
+                { id: 'orchid', name: 'Hoa Lan (Orchid)' },
+                { id: 'sunflower', name: 'Hoa Hướng Dương (Sunflower)' },
+                { id: 'chrysanthemum', name: 'Hoa Cúc (Chrysanthemum)' },
+                { id: 'carnation', name: 'Hoa Cẩm Chướng (Carnation)' },
+                { id: 'tulip', name: 'Hoa Tulip (Tulip)' },
+                { id: 'daisy', name: 'Hoa Cúc Họa Mi (Daisy)' },
+                { id: 'lotus', name: 'Hoa Sen (Lotus)' },
+                { id: 'peony', name: 'Hoa Mẫu Đơn (Peony)' },
+                { id: 'hydrangea', name: 'Hoa Cẩm Tú Cầu (Hydrangea)' },
+                { id: 'baby_breath', name: 'Hoa Baby (Baby\'s Breath)' },
+                { id: 'gerbera', name: 'Hoa Đồng Tiền (Gerbera)' },
+                { id: 'lavender', name: 'Hoa Oải Hương (Lavender)' },
+                { id: 'jasmine', name: 'Hoa Nhài (Jasmine)' },
+                { id: 'cherry_blossom', name: 'Hoa Anh Đào (Cherry Blossom)' },
+                { id: 'marigold', name: 'Hoa Cúc Vạn Thọ (Marigold)' },
+                { id: 'iris', name: 'Hoa Diên Vĩ (Iris)' },
+                { id: 'daffodil', name: 'Hoa Thủy Tiên (Daffodil)' },
+                { id: 'statice', name: 'Hoa Limonium (Statice)' },
+                { id: 'aster', name: 'Hoa Thạch Thảo (Aster)' },
+                { id: 'gladiolus', name: 'Hoa Lay Ơn (Gladiolus)' },
+                { id: 'snapdragon', name: 'Hoa Mõm Chó (Snapdragon)' },
+                { id: 'dahlia', name: 'Hoa Thược Dược (Dahlia)' },
+                { id: 'calla_lily', name: 'Hoa Rum (Calla Lily)' },
+                { id: 'sweet_pea', name: 'Hoa Đậu Thơm (Sweet Pea)' }
+            ];
+
+            const arrangementTypes = [
+                { id: 'bouquet', name: 'Bó Hoa (Bouquet)' },
+                { id: 'basket', name: 'Giỏ Hoa (Basket)' },
+                { id: 'box', name: 'Hộp Hoa (Box)' },
+                { id: 'vase', name: 'Lọ Hoa (Vase)' },
+                { id: 'wedding', name: 'Hoa Cưới (Wedding Flowers)' },
+                { id: 'congratulation', name: 'Hoa Chúc Mừng (Congratulation Flowers)' },
+                { id: 'sympathy', name: 'Hoa Chia Buồn (Sympathy Flowers)' },
+                { id: 'love', name: 'Hoa Tình Yêu (Love Flowers)' },
+                { id: 'birthday', name: 'Hoa Sinh Nhật (Birthday Flowers)' }
+            ];
+
+            const flowersContainer = document.getElementById('flowers-container');
+            flowersContainer.innerHTML = '';
+
+            // Giả lập hiển thị ảnh (trong môi trường thực tế, sẽ cần sử dụng Node.js hoặc PHP để quét thư mục)
+            function createImageGrid(categoryId, categoryName, isArrangement = false) {
+                const path = isArrangement ? `../arrangements/${categoryId}` : categoryId;
+                
+                // Tạo container cho loại hoa
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'category';
+                
+                // Tạo tiêu đề
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'category-title';
+                
+                const title = document.createElement('h2');
+                title.textContent = categoryName;
+                
+                const status = document.createElement('span');
+                status.className = 'status';
+                status.textContent = 'Chưa có ảnh nào. Hãy tải xuống ảnh và lưu vào thư mục này.';
+                
+                titleDiv.appendChild(title);
+                titleDiv.appendChild(status);
+                
+                // Tạo lưới ảnh
+                const imageGrid = document.createElement('div');
+                imageGrid.className = 'image-grid';
+                
+                // Hiển thị thông báo khi chưa có ảnh
+                const emptyMessage = document.createElement('div');
+                emptyMessage.className = 'empty-message';
+                emptyMessage.textContent = 'Chưa có ảnh nào. Hãy tham khảo file README.md để biết cách tải ảnh cho loại hoa này.';
+                
+                imageGrid.appendChild(emptyMessage);
+                
+                categoryDiv.appendChild(titleDiv);
+                categoryDiv.appendChild(imageGrid);
+                
+                flowersContainer.appendChild(categoryDiv);
+            }
+
+            // Hiển thị tất cả loại hoa
+            flowerTypes.forEach(flower => {
+                createImageGrid(flower.id, flower.name);
+            });
+
+            // Hiển thị tất cả kiểu cắm hoa (trong thư mục arrangements)
+            const arrangementsTitle = document.createElement('h1');
+            arrangementsTitle.textContent = 'Các kiểu cắm hoa';
+            flowersContainer.appendChild(arrangementsTitle);
+
+            arrangementTypes.forEach(arrangement => {
+                createImageGrid(arrangement.id, arrangement.name, true);
+            });
+        });
+    </script>
+</body>
+</html> 

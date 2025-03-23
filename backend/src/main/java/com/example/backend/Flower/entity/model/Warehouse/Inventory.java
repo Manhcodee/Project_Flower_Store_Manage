@@ -11,10 +11,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import java.time.LocalDateTime;
+
+import com.example.backend.Flower.entity.model.Product.FlowerProduct;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import com.example.backend.Flower.entity.model.flower.Flower;
 
 @Entity
 @Table(name = "inventory")
@@ -32,7 +34,7 @@ public class Inventory {
 
     @ManyToOne
     @JoinColumn(name = "flower_id", nullable = false)
-    private Flower flower;
+    private FlowerProduct flower;
 
     @Column(nullable = false)
     private Integer quantity;

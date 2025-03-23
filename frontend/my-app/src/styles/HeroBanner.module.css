@@ -1,0 +1,174 @@
+.heroBanner {
+  position: relative;
+  margin-bottom: 2rem;
+  height: 500px;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.slideContainer {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+.slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+  display: flex;
+  align-items: center;
+}
+
+.slide.active {
+  opacity: 1;
+}
+
+.bannerImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* Fallback khi ảnh không tồn tại */
+.slide::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f8a5c2 0%, #c2185b 100%);
+  z-index: 0;
+}
+
+/* Banner 2 và 3 có màu khác nhau */
+.slide:nth-child(2)::before {
+  background: linear-gradient(135deg, #a7e9e4 0%, #009688 100%);
+}
+
+.slide:nth-child(3)::before {
+  background: linear-gradient(135deg, #ffcc80 0%, #ff8f00 100%);
+}
+
+.bannerContent {
+  position: relative;
+  z-index: 2;
+  max-width: 600px;
+  padding: 2rem;
+  margin-left: 5%;
+  color: white;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  backdrop-filter: blur(5px);
+}
+
+.bannerTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.bannerDescription {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.bannerButton {
+  display: inline-block;
+  background-color: #fff;
+  color: #333;
+  padding: 0.8rem 1.5rem;
+  border-radius: 30px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.bannerButton:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.slideNav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.5);
+  color: #333;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.prevSlide {
+  left: 20px;
+}
+
+.nextSlide {
+  right: 20px;
+}
+
+.slideDots {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  z-index: 10;
+}
+
+.slideDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  margin: 0 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.slideDot.active {
+  background: white;
+  transform: scale(1.2);
+}
+
+@media (max-width: 768px) {
+  .heroBanner {
+    height: 400px;
+  }
+  
+  .bannerContent {
+    max-width: 90%;
+    padding: 1.5rem;
+  }
+  
+  .bannerTitle {
+    font-size: 1.8rem;
+  }
+  
+  .bannerDescription {
+    font-size: 1rem;
+  }
+} 

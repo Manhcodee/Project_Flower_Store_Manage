@@ -9,10 +9,12 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Column;
 import java.math.BigDecimal;
+
+import com.example.backend.Flower.entity.model.Product.FlowerProduct;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import com.example.backend.Flower.entity.model.flower.Flower;
 
 @Entity
 @Table(name = "order_details")
@@ -30,7 +32,7 @@ public class OrderDetail {
 
     @ManyToOne
     @JoinColumn(name = "flower_id", nullable = false)
-    private Flower flower;
+    private FlowerProduct flower;
 
     @Column(nullable = false)
     private Integer quantity;

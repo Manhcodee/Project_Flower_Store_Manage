@@ -1,0 +1,17 @@
+THÔNG TIN VỀ BANNER
+
+Các banner trên trang web cửa hàng hoa yêu cầu kích thước 1200x400 pixels.
+
+Tên tệp banner:
+1. flower-banner-1.jpg - Banner chính giới thiệu cửa hàng
+2. flower-banner-2.jpg - Banner bộ sưu tập hoa cưới 
+3. flower-banner-3.jpg - Banner ưu đãi mùa hoa
+
+Bạn có thể:
+1. Sử dụng file generate-banners.html để tạo banner mẫu, sau đó chụp màn hình và lưu lại
+2. Tải xuống ảnh banner miễn phí từ các website như:
+   - Unsplash: https://unsplash.com/s/photos/flower-banner
+   - Pexels: https://www.pexels.com/search/flower%20banner/
+   - Vecteezy: https://www.vecteezy.com/free-photos/flower-shop-banner
+
+Lưu ý: Hãy đảm bảo sử dụng ảnh miễn phí hoặc có bản quyền phù hợp cho mục đích thương mại. 

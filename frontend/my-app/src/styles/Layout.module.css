@@ -1,0 +1,22 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+}
+
+/* Đảm bảo font-awesome hiển thị đúng - sử dụng :global để tạo selector toàn cục */
+:global(i) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mainContent {
+  flex: 1;
+  padding: 20px 0;
+  background-color: #f9f9f9;
+} 

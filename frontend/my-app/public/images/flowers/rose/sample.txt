@@ -1,0 +1,20 @@
+HƯỚNG DẪN TẢI HÌNH ẢNH HOA HỒNG
+
+Để trang web hiển thị đúng, bạn cần tải ít nhất 10 hình ảnh hoa hồng vào thư mục này.
+Đặt tên các tệp như sau:
+- rose1.jpg
+- rose2.jpg
+- rose3.jpg
+...
+
+Nguồn ảnh miễn phí:
+1. Unsplash: https://unsplash.com/s/photos/rose-flower
+2. Pexels: https://www.pexels.com/search/rose%20flower/
+3. Pixabay: https://pixabay.com/images/search/rose%20flower/
+
+Kích thước đề xuất: 
+- Chiều rộng: 600-1200px 
+- Chiều cao: 400-800px
+- Tỷ lệ 3:2 hoặc 4:3
+
+Lưu ý: Tải ảnh chất lượng cao và đảm bảo bạn có quyền sử dụng ảnh. 

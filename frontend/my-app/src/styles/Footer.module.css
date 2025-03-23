@@ -1,0 +1,137 @@
+.footer {
+  background-color: #1c1c1c;
+  color: #ccc;
+  padding: 50px 0 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.footerContent {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 30px;
+}
+
+.footerSection {
+  flex: 1;
+  min-width: 250px;
+  margin-bottom: 30px;
+  padding-right: 20px;
+}
+
+.footerTitle {
+  color: #b4d435;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.footerTitle::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 50px;
+  height: 2px;
+  background-color: #566d1e;
+}
+
+.contactList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.contactList li {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.contactList li i {
+  margin-right: 10px;
+  color: #b4d435;
+  min-width: 20px;
+}
+
+.footerLinks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footerLinks li {
+  margin-bottom: 12px;
+}
+
+.footerLinks li a {
+  color: #ccc;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footerLinks li a:hover {
+  color: #b4d435;
+}
+
+.socialLinks {
+  display: flex;
+  margin-bottom: 25px;
+}
+
+.socialLinks a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  background-color: #333;
+  color: #b4d435;
+  margin-right: 10px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.socialLinks a:hover {
+  background-color: #b4d435;
+  color: #1c1c1c;
+}
+
+.paymentMethods {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.paymentMethods img {
+  height: 30px;
+  margin-right: 10px;
+  margin-bottom: 10px;
+}
+
+.copyright {
+  text-align: center;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+  font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+  .footerSection {
+    flex: 0 0 50%;
+  }
+}
+
+@media (max-width: 576px) {
+  .footerSection {
+    flex: 0 0 100%;
+  }
+} 
