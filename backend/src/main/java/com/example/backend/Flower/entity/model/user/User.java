@@ -48,6 +48,9 @@ public class User {
     @Column(name = "google_id", unique = true, nullable = true)
     private String googleId;  // Chỉ có khi đăng nhập Google
 
+    @Column(name = "facebook_id", unique = true, nullable = true)
+    private String facebookId;  // Chỉ có khi đăng nhập Facebook
+
     @Column(name = "profile_picture")
     private String profilePicture;
 

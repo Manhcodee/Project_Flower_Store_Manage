@@ -34,3 +34,13 @@ build/
 
 # Environment variables
 .env
+
+# Frontend
+frontend/my-app/.env
+frontend/my-app/.env.local
+frontend/my-app/.env.development.local
+frontend/my-app/.env.test.local
+frontend/my-app/.env.production.local
+
+# Backend
+backend/.env
